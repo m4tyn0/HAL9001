@@ -1,0 +1,30 @@
+%%{init: {'flowchart': {'curve': 'linear'}}}%%
+graph TD;
+	__start__([__start__]):::first
+	user_input(user_input)
+	process_input(process_input)
+	scheduler(scheduler)
+	project_manager(project_manager)
+	player_manager(player_manager)
+	goal_tracker(goal_tracker)
+	routine_manager(routine_manager)
+	check_end(check_end)
+	__end__(__end__)
+	__start__ --> user_input;
+	check_end --> user_input;
+	goal_tracker --> check_end;
+	player_manager --> check_end;
+	project_manager --> check_end;
+	routine_manager --> check_end;
+	scheduler --> check_end;
+	user_input -.-> process_input;
+	user_input -.-> scheduler;
+	user_input -.-> project_manager;
+	user_input -.-> player_manager;
+	user_input -.-> goal_tracker;
+	user_input -.-> routine_manager;
+	user_input -.-> check_end;
+	user_input -.-> __end__;
+	classDef default fill:#f2f0ff,line-height:1.2
+	classDef first fill-opacity:0
+	classDef last fill:#bfb6fc

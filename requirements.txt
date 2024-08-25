@@ -1,0 +1,25 @@
+# Core dependencies
+langchain
+langgraph
+langchain_anthropic
+
+
+# Database
+sqlite3  # This is included in Python's standard library, no need to specify version
+
+# Utility libraries
+python-dateutil  # For date parsing and manipulation
+pydantic  # For data validation and settings management
+python-dotenv
+
+# Markdown support
+markdown  # For parsing and rendering markdown content
+
+# JSON schema validation
+jsonschema  # For validating JSON against schemas
+
+# Environment variable management
+python-dotenv  # For loading environment variables from a .env file
+
+# Testing
+pytest  # For running tests, if you decide to add unit tests later
