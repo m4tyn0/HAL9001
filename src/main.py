@@ -1,78 +1,31 @@
+# src/main.py
+
 import os
-from typing import Dict, Any
-from langchain.llms import OpenAI
-from langgraph.graph import StateGraph, END
-from langgraph.prebuilt import ToolExecutor
+from dotenv import load_dotenv
+from pymongo import MongoClient
+from cli.cli import create_cli
+from engine.command_handler import CommandHandler
 
-# Update imports to reflect new structure
-from app.cli import parse_cli_arguments
-from app.data_manager import load_data, save_data
-from tools.skill_tool import SkillTool
-from tools.project_tool import ProjectTool
-from tools.routine_tool import RoutineTool
-from tools.schedule_tool import ScheduleTool
-from config.config import Config
+# Load environment variables from .env file
+load_dotenv()
 
-# Initialize OpenAI LLM
-llm = OpenAI(api_key=Config.OPENAI_API_KEY)
 
-# Initialize tools
-skill_tool = SkillTool()
-project_tool = ProjectTool(llm)
-routine_tool = RoutineTool()
-schedule_tool = ScheduleTool(llm)
+def create_app():
+    # Get MongoDB URI and database name from environment variables
+    mongodb_uri = os.getenv('MONGODB_URI')
+    db_name = os.getenv('MONGODB_DATABASE')
 
-# Combine all tools
-tools = [skill_tool, project_tool, routine_tool, schedule_tool]
-tool_executor = ToolExecutor(tools)
+    if not mongodb_uri:
+        raise ValueError("MONGODB_URI environment variable is not set")
+    if not db_name:
+        raise ValueError("MONGODB_DATABASE environment variable is not set")
 
-def cli_interface(state: Dict[str, Any]) -> Dict[str, Any]:
-    """Parse CLI arguments and load user data."""
-    state["command"] = parse_cli_arguments()
-    state["data"] = load_data()
-    return state
+    client = MongoClient(mongodb_uri)
+    db = client[db_name]  # Explicitly select the database
+    command_handler = CommandHandler(db)
+    return create_cli(command_handler)
 
-def brain(state: Dict[str, Any]) -> Dict[str, Any]:
-    """Main logic for processing commands and executing tools."""
-    command = state["command"]
-    data = state["data"]
 
-    if command["action"] == "onboard":
-        data["user"]["name"] = input("Enter your name: ")
-        state["output"] = f"Welcome, {data['user']['name']}!"
-    else:
-        # Execute the appropriate tool based on the command
-        tool_input = {"data": data, "command": command}
-        result = tool_executor.execute(command["action"], tool_input)
-        state.update(result)
-
-    save_data(data)
-    return state
-
-def user_output(state: Dict[str, Any]) -> Dict[str, Any]:
-    """Display output to the user."""
-    print(state.get("output", "Operation completed."))
-    return state
-
-# Create the LangGraph
-workflow = StateGraph()
-
-# Add nodes
-workflow.add_node("CLI", cli_interface)
-workflow.add_node("Brain", brain)
-workflow.add_node("Output", user_output)
-
-# Add edges
-workflow.add_edge("CLI", "Brain")
-workflow.add_edge("Brain", "Output")
-workflow.add_edge("Output", END)
-
-# Set entry point
-workflow.set_entry_point("CLI")
-
-# Compile the graph
-app = workflow.compile()
-
-if __name__ == "__main__":
-    for output in app.stream({}, {"recursion_limit": 10}):
-        pass
+if __name__ == '__main__':
+    cli = create_app()
+    cli()  # This invokes the Click command group

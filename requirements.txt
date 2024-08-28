@@ -1,0 +1,16 @@
+python-dotenv
+anthropic
+langchain
+langgraph
+
+pymongo
+
+# Jupyter Notebook
+jupyter
+ipykernel
+ipywidgets
+pyfiglet
+
+#CLI interface
+click
+rich
