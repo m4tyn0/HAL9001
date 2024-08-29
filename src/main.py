@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from pymongo import MongoClient
 from cli.cli import create_cli
 from engine.command_handler import CommandHandler
+from database.handlers.database_handler import DatabaseHandler
 
 # Load environment variables from .env file
 load_dotenv()
@@ -22,7 +23,8 @@ def create_app():
 
     client = MongoClient(mongodb_uri)
     db = client[db_name]  # Explicitly select the database
-    command_handler = CommandHandler(db)
+    db_handler = DatabaseHandler(db)
+    command_handler = CommandHandler(db_handler)
     return create_cli(command_handler)
 
 

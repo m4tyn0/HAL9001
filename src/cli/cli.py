@@ -352,6 +352,9 @@ def create_cli(command_handler):
         result = ctx.obj.handle_command("task", data)
         click.echo(synthwave_style(hal_speak(result), NEON_GREEN))
 
+    # src/cli/cli.py
+
+
     @cli.command()
     @click.pass_context
     def chat(ctx):
@@ -361,11 +364,72 @@ def create_cli(command_handler):
             user_input = click.prompt(synthwave_style(
                 "You", NEON_GREEN), prompt_suffix=": ")
             if user_input.lower() in ['exit', 'quit', 'bye']:
-                click.echo(synthwave_style(
-                    "Ending chat session...", NEON_BLUE))
+                click.echo(synthwave_style("Ending chat session...", NEON_BLUE))
                 break
             result = ctx.obj.handle_command("chat", {"input": user_input})
-            click.echo(synthwave_style(
-                "HAL-9001", NEON_PURPLE) + ": " + result)
+
+            if isinstance(result, dict):
+                status = result.get('status', 'error')
+                response = result.get('data', 'No response')
+                if status == 'error':
+                    click.echo(synthwave_style(
+                        "Error: {}", NEON_PINK).format(response))
+                else:
+                    click.echo(synthwave_style("HAL-9001: {}",
+                            NEON_PURPLE).format(response))
+            else:
+                click.echo(synthwave_style("HAL-9001: {}",
+                        NEON_PURPLE).format(str(result)))
+
+    @cli.group(cls=SynthwaveGroup, invoke_without_command=True)
+    @click.pass_context
+    def routine(ctx):
+        """Routine related commands"""
+        if ctx.invoked_subcommand is None:
+            click.echo(ctx.get_help())
+
+    @routine.command()
+    @click.pass_context
+    def list(ctx):
+        """List all routines"""
+        result = ctx.obj.handle_command("routine", {"action": "list"})
+        click.echo(synthwave_style(hal_speak(result), NEON_GREEN))
+
+    @routine.command()
+    @click.argument('name')
+    @click.option('--description', help='Description of the routine')
+    @click.pass_context
+    def add(ctx, name, description):
+        """Add a new routine"""
+        result = ctx.obj.handle_command(
+            "routine", {"action": "add", "name": name,
+                        "description": description}
+        )
+        click.echo(synthwave_style(hal_speak(result), NEON_PINK))
+
+    @routine.command()
+    @click.argument('routine_id')
+    @click.argument('task_id')
+    @click.pass_context
+    def add_task(ctx, routine_id, task_id):
+        """Add a task to a routine"""
+        result = ctx.obj.handle_command(
+            "routine", {"action": "add_task",
+                        "routine_id": routine_id, "task_id": task_id}
+        )
+        click.echo(synthwave_style(hal_speak(result), NEON_BLUE))
+
+    @routine.command()
+    @click.argument('routine_id')
+    @click.argument('task_id')
+    @click.pass_context
+    def remove_task(ctx, routine_id, task_id):
+        """Remove a task from a routine"""
+        result = ctx.obj.handle_command(
+            "routine", {"action": "remove_task",
+                        "routine_id": routine_id, "task_id": task_id}
+        )
+        click.echo(synthwave_style(hal_speak(result), NEON_PINK))
+
 
     return cli

@@ -1,3 +1,5 @@
+# src/database/repositories/skill_repository.py
+
 from bson import ObjectId
 from database.models.skill import Skill
 
@@ -7,21 +9,18 @@ class SkillRepository:
         self.db = database
         self.collection = self.db.skills
 
-    def create(self, skill):
-        result = self.collection.insert_one(skill.to_dict())
-        return str(result.inserted_id)
+    # ... (existing methods)
 
-    def find_by_id(self, skill_id):
-        skill_data = self.collection.find_one({"_id": ObjectId(skill_id)})
-        return Skill(**skill_data) if skill_data else None
+    def find_children(self, skill_id):
+        children = self.collection.find({"parent": str(skill_id)})
+        return [Skill(**child) for child in children]
 
-    def find_by_user(self, user_id):
-        skills = self.collection.find({"user_id": ObjectId(user_id)})
-        return [Skill(**skill) for skill in skills]
+    def update_hierarchy(self, skill_id, parent_id=None, child_ids=None):
+        update = {}
+        if parent_id is not None:
+            update["parent"] = str(parent_id)
+        if child_ids is not None:
+            update["children"] = [str(child_id) for child_id in child_ids]
 
-    def update(self, skill):
         self.collection.update_one(
-            {"_id": skill._id}, {"$set": skill.to_dict()})
-
-    def delete(self, skill_id):
-        self.collection.delete_one({"_id": ObjectId(skill_id)})
+            {"_id": ObjectId(skill_id)}, {"$set": update})

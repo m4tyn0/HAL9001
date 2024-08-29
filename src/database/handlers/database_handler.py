@@ -1,14 +1,12 @@
-# src/database/mongodb_handler.py
+# src/database/database_handler.py
 
-from pymongo import MongoClient
-from utils.database_tool import DatabaseHandler
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Any, Optional
+from bson import ObjectId
 
 
-class MongoDBHandler(DatabaseHandler):
-    def __init__(self, connection_string: str, database_name: str):
-        self.client = MongoClient(connection_string)
-        self.db = self.client[database_name]
+class DatabaseHandler:
+    def __init__(self, database):
+        self.db = database
 
     def insert_one(self, collection: str, document: Dict[str, Any]) -> str:
         result = self.db[collection].insert_one(document)
@@ -19,13 +17,19 @@ class MongoDBHandler(DatabaseHandler):
         return [str(id) for id in result.inserted_ids]
 
     def find_one(self, collection: str, query: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        return self.db[collection].find_one(query)
+        result = self.db[collection].find_one(query)
+        if result:
+            result['_id'] = str(result['_id'])  # Convert ObjectId to string
+        return result
 
     def find_many(self, collection: str, query: Dict[str, Any], limit: int = 0) -> List[Dict[str, Any]]:
         cursor = self.db[collection].find(query)
         if limit > 0:
             cursor = cursor.limit(limit)
-        return list(cursor)
+        results = list(cursor)
+        for result in results:
+            result['_id'] = str(result['_id'])  # Convert ObjectId to string
+        return results
 
     def update_one(self, collection: str, query: Dict[str, Any], update: Dict[str, Any]) -> int:
         result = self.db[collection].update_one(query, {"$set": update})

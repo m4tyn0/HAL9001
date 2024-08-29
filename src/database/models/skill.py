@@ -1,8 +1,10 @@
+# src/database/models/skill.py
+
 from bson import ObjectId
 
 
 class Skill:
-    def __init__(self, user_id, name, description, level, xp, projects=None, logs=None, tags=None, _id=None):
+    def __init__(self, user_id, name, description, level=1, xp=0, projects=None, logs=None, tags=None, parent=None, children=None, _id=None):
         self._id = _id if _id else ObjectId()
         self.user_id = user_id
         self.name = name
@@ -12,6 +14,8 @@ class Skill:
         self.projects = projects if projects else []
         self.logs = logs if logs else []
         self.tags = tags if tags else []
+        self.parent = parent
+        self.children = children if children else []
 
     def to_dict(self):
         return {
@@ -23,5 +27,7 @@ class Skill:
             "xp": self.xp,
             "projects": self.projects,
             "logs": self.logs,
-            "tags": self.tags
+            "tags": self.tags,
+            "parent": self.parent,
+            "children": self.children
         }

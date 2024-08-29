@@ -1,64 +1,46 @@
 # src/workflows/onboarding_workflow.py
 
-from tools.database_tool import DatabaseTool
-from tools.log_tool import LogTool
-from tools.extract_tool import ExtractTool
+from langgraph.graph import Graph
+from langgraph.prebuilt import ToolExecutor
+from langchain.schema import HumanMessage, SystemMessage
+from langchain.chat_models import ChatAnthropic
+from utils.database_tool import DatabaseTool
 
 
-class OnboardingWorkflow:
-    def __init__(self, db_tool: DatabaseTool, log_tool: LogTool, extract_tool: ExtractTool):
-        self.db_tool = db_tool
-        self.log_tool = log_tool
-        self.extract_tool = extract_tool
+def create_onboarding_workflow(db_handler):
+    chat_model = ChatAnthropic(model="claude-3-haiku-20240307")
+    database_tool = DatabaseTool(db_handler)
+    tool_executor = ToolExecutor(tools=[database_tool])
 
-    def execute(self, user_input: str) -> dict:
-        try:
-            # Extract user information
-            name_result = self.extract_tool.execute(user_input, "name")
-            email_result = self.extract_tool.execute(user_input, "email")
+    def extract_and_store_data(state):
+        human_message = state['human_message']
+        system_prompt = """You are an AI assistant helping with user onboarding. 
+        Extract relevant information about the user, their skills, tasks, and preferences. 
+        Use the DatabaseTool to store this information in the appropriate collections."""
 
-            if name_result["status"] == "error" or email_result["status"] == "error":
-                raise ValueError("Unable to extract required information")
+        messages = [
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=human_message)
+        ]
 
-            name = name_result["extracted_info"]
-            email = email_result["extracted_info"]
+        ai_message = chat_model.invoke(messages)
 
-            # Create user in database
-            user_data = {
-                "name": name,
-                "email": email,
-                "onboarding_date": self.extract_tool.execute(user_input, "date")["extracted_info"]
-            }
-            db_result = self.db_tool.execute("insert_one", "users", user_data)
+        # Here you would parse the AI's response and use the DatabaseTool to store the extracted information
+        # This is a simplified example
+        tool_executor.invoke({
+            "action": "insert_one",
+            "collection": "users",
+            "data": {"message": ai_message.content}
+        })
 
-            if db_result["status"] == "error":
-                raise ValueError(f"Database error: {db_result['message']}")
+        return {"ai_message": ai_message.content}
 
-            # Log the successful onboarding
-            log_result = self.log_tool.execute(
-                f"User onboarded successfully",
-                level="info",
-                user_id=db_result["inserted_id"],
-                name=name,
-                email=email
-            )
+    workflow = Graph()
+    workflow.add_node("extract_and_store", extract_and_store_data)
+    workflow.set_entry_point("extract_and_store")
 
-            return {
-                "status": "success",
-                "message": "User onboarded successfully",
-                "user_id": db_result["inserted_id"],
-                "name": name,
-                "email": email
-            }
+    return workflow
 
-        except Exception as e:
-            error_message = f"Onboarding failed: {str(e)}"
-            self.log_tool.execute(error_message, level="error")
-            return {"status": "error", "message": error_message}
-
-# Usage example:
-# db_tool = DatabaseTool(mongo_handler)
-# log_tool = LogTool()
-# extract_tool = ExtractTool()
-# onboarding = OnboardingWorkflow(db_tool, log_tool, extract_tool)
-# result = onboarding.execute("My name is John Doe, email is john.doe@example.com, and I'm joining on 2023-06-15")
+# Usage
+# workflow = create_onboarding_workflow(db_handler)
+# result = workflow.invoke({"human_message": "Hello, I'm John and I'm good at programming."})

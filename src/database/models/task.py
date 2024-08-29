@@ -18,6 +18,7 @@ class Task:
         self.actual_time = actual_time
         self.tags = tags if tags else []
 
+
     def to_dict(self):
         return {
             "_id": self._id,

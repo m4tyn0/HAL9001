@@ -23,3 +23,4 @@ class WorkflowManager:
     def execute_workflow(self, workflow_name: str, data: dict):
         self.load_workflow(workflow_name)
         return self.workflows[workflow_name].execute(data)
+    
