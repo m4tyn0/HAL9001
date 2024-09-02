@@ -1,5 +1,3 @@
-# src/database/database_handler.py
-
 from typing import Dict, List, Any, Optional
 from bson import ObjectId
 

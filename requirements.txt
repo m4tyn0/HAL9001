@@ -3,6 +3,9 @@ anthropic
 langchain
 langgraph
 langchain_anthropic
+langchain_openai
+langchain_community
+langchain_mongodb
 
 pymongo
 

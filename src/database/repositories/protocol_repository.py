@@ -2,6 +2,7 @@
 
 from bson import ObjectId
 from database.models.protocol import Protocol
+from datetime import datetime
 
 
 class ProtocolRepository:

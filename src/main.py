@@ -1,33 +1,42 @@
-# src/main.py
-
+# main.py
 import os
 from dotenv import load_dotenv
-from pymongo import MongoClient
 from cli.cli import create_cli
-from engine.command_handler import CommandHandler
-from database.handlers.database_handler import DatabaseHandler
+from agents.chat_agent import create_agent
+from engine.command_handler import CommandHandler 
 
 # Load environment variables from .env file
 load_dotenv()
 
+# Ensure these environment variables are set in your .env file
+required_env_vars = [
+    "MONGODB_URI",
+    "OPENAI_API_KEY",
+    "ANTHROPIC_API_KEY"
+]
+
+
+def check_environment_variables():
+    missing_vars = [var for var in required_env_vars if var not in os.environ]
+    if missing_vars:
+        raise ValueError(f"Missing required environment variables: {', '.join(missing_vars)}")
+
 
 def create_app():
-    # Get MongoDB URI and database name from environment variables
-    mongodb_uri = os.getenv('MONGODB_URI')
-    db_name = os.getenv('MONGODB_DATABASE')
-
-    if not mongodb_uri:
-        raise ValueError("MONGODB_URI environment variable is not set")
-    if not db_name:
-        raise ValueError("MONGODB_DATABASE environment variable is not set")
-
-    client = MongoClient(mongodb_uri)
-    db = client[db_name]  # Explicitly select the database
-    db_handler = DatabaseHandler(db)
-    command_handler = CommandHandler(db_handler)
+    check_environment_variables()
+    agent = create_agent()
+    command_handler = CommandHandler(agent)
     return create_cli(command_handler)
 
 
+def main():
+    try:
+        cli = create_app()
+        cli()
+    except Exception as e:
+        print(f"An error occurred while starting the application: {e}")
+        exit(1)
+
+
 if __name__ == '__main__':
-    cli = create_app()
-    cli()  # This invokes the Click command group
+    main()
