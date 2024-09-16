@@ -6,8 +6,11 @@ langchain_anthropic
 langchain_openai
 langchain_community
 langchain_mongodb
+langgraph-checkpoint-sqlite
 
 pymongo
+
+bcrypt
 
 # Jupyter Notebook
 jupyter

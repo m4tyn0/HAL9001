@@ -1,12 +1,20 @@
 import click
 from typing import Dict, Any
 from engine.command_handler import CommandHandler
+import logging
+from database.models.model import ENTITY_TYPES
+from datetime import datetime, date, time
+from pydantic import BaseModel
+
 
 NEON_PINK = 'bright_magenta'
 NEON_BLUE = 'bright_cyan'
 NEON_PURPLE = 'bright_blue'
 NEON_GREEN = 'bright_green'
 NEON_YELLOW = 'bright_yellow'
+
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 
 class SynthwaveGroup(click.Group):
@@ -35,12 +43,12 @@ def synthwave_style(text, color):
     return click.style(text, fg=color, bold=True)
 
 
-def create_cli(command_handler: CommandHandler):
+def create_cli():
     @click.group(cls=SynthwaveGroup, invoke_without_command=True)
     @click.pass_context
     def cli(ctx):
         """HAL-9001 Personal Development CLI"""
-        ctx.obj = command_handler
+        ctx.obj = CommandHandler()
         if ctx.invoked_subcommand is None:
             click.echo(ctx.get_help())
 
@@ -48,6 +56,8 @@ def create_cli(command_handler: CommandHandler):
     @click.pass_context
     def chat(ctx):
         """Start a chat session"""
+        command_handler = ctx.obj
+
         click.echo(synthwave_style("Starting chat session...", NEON_BLUE))
         click.echo(synthwave_style(
             "Type 'exit' to end the session, or 'help' for available commands.", NEON_YELLOW))
@@ -59,30 +69,13 @@ def create_cli(command_handler: CommandHandler):
                     "Ending chat session...", NEON_BLUE))
                 break
             elif user_input.lower() in ['history', 'clear', 'help']:
-                result = ctx.obj.handle_command(user_input.lower())
+                result = command_handler.handle_command(user_input.lower())
                 click.echo(synthwave_style(result, NEON_YELLOW))
             else:
-                result = ctx.obj.handle_chat(user_input)
-                click.echo(synthwave_style(f"HAL-9001: {result}", NEON_PURPLE))
-
-    @cli.command()
-    @click.pass_context
-    def onboard(ctx):
-        """Start the onboarding process"""
-        click.echo(synthwave_style("Starting onboarding process...", NEON_BLUE))
-        while True:
-            user_input = click.prompt(synthwave_style(
-                "You", NEON_GREEN), prompt_suffix=": ")
-            if user_input.lower() == 'exit':
-                click.echo(synthwave_style(
-                    "Ending chat session...", NEON_BLUE))
-                break
-            elif user_input.lower() in ['history', 'clear', 'help']:
-                result = ctx.obj.handle_command(user_input.lower())
-                click.echo(synthwave_style(result, NEON_YELLOW))
-            else:
-                result = ctx.obj.handle_onboarding(user_input)
-                click.echo(synthwave_style(f"HAL-9001: {result}", NEON_PURPLE))
+                result = command_handler.handle_chat(user_input)
+                click.echo(synthwave_style("HAL-9001:", NEON_PURPLE))
+                for line in result.split('\n'):
+                    click.echo(synthwave_style(line, NEON_PINK))
 
     @cli.command()
     @click.pass_context
@@ -98,103 +91,120 @@ def create_cli(command_handler: CommandHandler):
         result = ctx.obj.handle_command('clear')
         click.echo(synthwave_style(result, NEON_YELLOW))
 
-    @cli.group()
-    def skill():
-        """Manage skills"""
-        pass
+    def create_entity_commands(entity_type: str, entity_class):
+        @cli.group(name=entity_type)
+        def entity_group():
+            pass
 
-    @skill.command('add')
-    @click.pass_context
-    def add_skill(ctx):
-        """Add a new skill"""
-        name = click.prompt(synthwave_style("Skill name", NEON_GREEN))
-        description = click.prompt(synthwave_style("Description", NEON_GREEN))
-        xp = click.prompt(synthwave_style(
-            "Initial XP", NEON_GREEN), type=int, default=0)
-        result = ctx.obj.handle_command(
-            'add_skill', name=name, description=description, xp=xp)
-        click.echo(synthwave_style(result, NEON_YELLOW))
+        @entity_group.command('add')
+        @click.pass_context
+        def add(ctx):
+            """Add a new entity"""
+            data = {}
+            for field, field_info in entity_class.__fields__.items():
+                if field not in ['id', 'created_at', 'updated_at']:
+                    if isinstance(field_info.annotation, type) and issubclass(field_info.annotation, BaseModel):
+                        continue  # Skip nested models for now
+                    if field_info.annotation == date:
+                        value = click.prompt(synthwave_style(
+                            f"{field.capitalize()}", NEON_GREEN), type=click.DateTime(formats=["%Y-%m-%d"]))
+                        data[field] = value.date()
+                    elif field_info.annotation == time:
+                        value = click.prompt(synthwave_style(
+                            f"{field.capitalize()}", NEON_GREEN), type=click.DateTime(formats=["%H:%M"]))
+                        data[field] = value.time()
+                    elif field_info.annotation == int:
+                        data[field] = click.prompt(synthwave_style(
+                            f"{field.capitalize()}", NEON_GREEN), type=int)
+                    else:
+                        data[field] = click.prompt(synthwave_style(
+                            f"{field.capitalize()}", NEON_GREEN))
 
-    @skill.command('list')
-    @click.pass_context
-    def list_skills(ctx):
-        """List all skills"""
-        result = ctx.obj.handle_command('list_skills')
-        click.echo(result)
+            notes = click.prompt(synthwave_style(
+                "Notes (optional)", NEON_GREEN), default='')
 
-    @cli.group()
-    def project():
-        """Manage projects"""
-        pass
+            result = ctx.obj.handle_command(
+                f'create_{entity_type}', data=data, notes=notes)
+            click.echo(synthwave_style(result, NEON_YELLOW))
 
-    @project.command('add')
-    @click.pass_context
-    def add_project(ctx):
-        """Add a new project"""
-        name = click.prompt(synthwave_style("Project name", NEON_GREEN))
-        description = click.prompt(synthwave_style("Description", NEON_GREEN))
-        status = click.prompt(synthwave_style(
-            "Status", NEON_GREEN), default="Not Started")
-        priority = click.prompt(synthwave_style(
-            "Priority", NEON_GREEN), type=int)
-        estimated_duration = click.prompt(synthwave_style(
-            "Estimated duration (days)", NEON_GREEN), type=int)
-        xp_amount = click.prompt(synthwave_style(
-            "XP amount", NEON_GREEN), type=int)
-        tags = click.prompt(synthwave_style(
-            "Tags (comma-separated)", NEON_GREEN)).split(',')
-        result = ctx.obj.handle_command('add_project', name=name, description=description, status=status,
-                                        priority=priority, estimated_duration=estimated_duration,
-                                        xp_amount=xp_amount, tags=tags)
-        click.echo(synthwave_style(result, NEON_YELLOW))
+        @entity_group.command('list')
+        @click.pass_context
+        def list_entities(ctx):
+            """List all entities"""
+            result = ctx.obj.handle_command(f'list_{entity_type}')
+            click.echo(synthwave_style(result, NEON_YELLOW))
 
-    @project.command('list')
-    @click.pass_context
-    def list_projects(ctx):
-        """List all projects"""
-        result = ctx.obj.handle_command('list_projects')
-        click.echo(result)
+        @entity_group.command('get')
+        @click.pass_context
+        @click.argument('entity_id')
+        def get(ctx, entity_id):
+            """Get entity details"""
+            result = ctx.obj.handle_command(
+                f'get_{entity_type}', entity_id=entity_id)
+            click.echo(synthwave_style(result, NEON_YELLOW))
 
-    @cli.group()
-    def task():
-        """Manage tasks"""
-        pass
+        @entity_group.command('update')
+        @click.pass_context
+        @click.argument('entity_id')
+        def update(ctx, entity_id):
+            """Update entity details"""
+            data = {}
+            entity = ctx.obj.handle_command(
+                f'get_{entity_type}', entity_id=entity_id)
+            for field, field_info in entity_class.__fields__.items():
+                if field not in ['id', 'created_at', 'updated_at']:
+                    if isinstance(field_info.annotation, type) and issubclass(field_info.annotation, BaseModel):
+                        continue  # Skip nested models for now
+                    current_value = getattr(entity, field, None)
+                    if field_info.annotation == date:
+                        value = click.prompt(synthwave_style(f"{field.capitalize()}", NEON_GREEN),
+                                             type=click.DateTime(
+                                                 formats=["%Y-%m-%d"]),
+                                             default=current_value.isoformat() if current_value else None)
+                        if value:
+                            data[field] = value.date()
+                    elif field_info.annotation == time:
+                        value = click.prompt(synthwave_style(f"{field.capitalize()}", NEON_GREEN),
+                                             type=click.DateTime(
+                                                 formats=["%H:%M"]),
+                                             default=current_value.isoformat() if current_value else None)
+                        if value:
+                            data[field] = value.time()
+                    elif field_info.annotation == int:
+                        value = click.prompt(synthwave_style(f"{field.capitalize()}", NEON_GREEN),
+                                             type=int,
+                                             default=current_value)
+                        if value != current_value:
+                            data[field] = value
+                    else:
+                        value = click.prompt(synthwave_style(f"{field.capitalize()}", NEON_GREEN),
+                                             default=str(current_value) if current_value is not None else None)
+                        if value != str(current_value):
+                            data[field] = value
 
-    @task.command('add')
-    @click.pass_context
-    def add_task(ctx):
-        """Add a new task"""
-        name = click.prompt(synthwave_style("Task name", NEON_GREEN))
-        description = click.prompt(synthwave_style("Description", NEON_GREEN))
-        status = click.prompt(synthwave_style(
-            "Status", NEON_GREEN), default="Not Started")
-        xp_amount = click.prompt(synthwave_style(
-            "XP amount", NEON_GREEN), type=int)
-        duration = click.prompt(synthwave_style(
-            "Duration (minutes)", NEON_GREEN), type=int)
-        task_type = click.prompt(synthwave_style("Type", NEON_GREEN), type=click.Choice(
-            ['one-time', 'recurring', 'habit', 'routine']))
-        priority = click.prompt(synthwave_style(
-            "Priority", NEON_GREEN), type=int)
-        due_date = click.prompt(synthwave_style(
-            "Due date (YYYY-MM-DD)", NEON_GREEN))
-        difficulty = click.prompt(synthwave_style(
-            "Difficulty (1-5)", NEON_GREEN), type=click.IntRange(1, 5))
-        energy_required = click.prompt(synthwave_style(
-            "Energy required (1-5)", NEON_GREEN), type=click.IntRange(1, 5))
-        tags = click.prompt(synthwave_style(
-            "Tags (comma-separated)", NEON_GREEN)).split(',')
-        result = ctx.obj.handle_command('add_task', name=name, description=description, status=status,
-                                        xp_amount=xp_amount, duration=duration, task_type=task_type,
-                                        priority=priority, due_date=due_date, difficulty=difficulty,
-                                        energy_required=energy_required, tags=tags)
-        click.echo(synthwave_style(result, NEON_YELLOW))
+            notes = click.prompt(synthwave_style(
+                "Notes (optional)", NEON_GREEN), default='')
 
-    @task.command('list')
-    @click.pass_context
-    def list_tasks(ctx):
-        """List all tasks"""
-        result = ctx.obj.handle_command('list_tasks')
-        click.echo(result)
+            result = ctx.obj.handle_command(
+                f'update_{entity_type}', entity_id=entity_id, data=data, notes=notes)
+            click.echo(synthwave_style(result, NEON_YELLOW))
+
+        @entity_group.command('delete')
+        @click.pass_context
+        @click.argument('entity_id')
+        @click.confirmation_option(prompt='Are you sure you want to delete this entity?')
+        def delete(ctx, entity_id):
+            """Delete an entity"""
+            result = ctx.obj.handle_command(
+                f'delete_{entity_type}', entity_id=entity_id)
+            click.echo(synthwave_style(result, NEON_YELLOW))
+
+    for entity_type, entity_class in ENTITY_TYPES.items():
+        create_entity_commands(entity_type, entity_class)
 
     return cli
+
+
+if __name__ == '__main__':
+    cli = create_cli()
+    cli()
